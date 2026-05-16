@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
 import { CopyButton } from '@/components/copy-button'
 import { parsePublicPrompt, validateHideTags } from '@/lib/prompt-utils'
 import type { Document } from '@/lib/types'
@@ -24,6 +25,9 @@ export function DocumentEditor({ document, hidePromptEditor }: DocumentEditorPro
   const [fullPrompt, setFullPrompt] = useState(document?.full_prompt ?? '')
   const [error, setError] = useState<string | null>(null)
   const [saveLabel, setSaveLabel] = useState('Salvar')
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [deleteConfirmName, setDeleteConfirmName] = useState('')
+  const [isDeleting, startDeleteTransition] = useTransition()
 
   const validation = validateHideTags(fullPrompt)
   const publicPreview = validation.valid ? parsePublicPrompt(fullPrompt) : ''
@@ -77,6 +81,14 @@ export function DocumentEditor({ document, hidePromptEditor }: DocumentEditorPro
       body: JSON.stringify({ status }),
     })
     router.refresh()
+  }
+
+  function handleDeleteConfirm() {
+    if (!document) return
+    startDeleteTransition(async () => {
+      await fetch(`/api/documents/${document.id}`, { method: 'DELETE' })
+      router.push('/admin')
+    })
   }
 
   const reviewUrl = document
@@ -177,9 +189,48 @@ export function DocumentEditor({ document, hidePromptEditor }: DocumentEditorPro
             >
               Abrir página do cliente ↗
             </a>
+            <Button
+              variant="destructive"
+              size="sm"
+              className="ml-auto"
+              onClick={() => { setDeleteConfirmName(''); setDeleteDialogOpen(true) }}
+            >
+              Excluir projeto
+            </Button>
           </>
         )}
       </div>
+
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Excluir projeto</DialogTitle>
+            <DialogDescription>
+              Esta ação é irreversível. Todos os comentários associados também serão excluídos.
+              <br /><br />
+              Digite o nome do projeto <strong>{document?.project_name}</strong> para confirmar:
+            </DialogDescription>
+          </DialogHeader>
+          <Input
+            value={deleteConfirmName}
+            onChange={e => setDeleteConfirmName(e.target.value)}
+            placeholder={document?.project_name}
+            autoFocus
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={deleteConfirmName !== document?.project_name || isDeleting}
+              onClick={handleDeleteConfirm}
+            >
+              {isDeleting ? 'Excluindo...' : 'Confirmar exclusão'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
