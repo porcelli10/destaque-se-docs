@@ -43,7 +43,7 @@ export function ReviewBalloon({
           </div>
         </div>
         <Badge
-          variant={resolved ? 'outline' : 'destructive'}
+          variant={resolved ? 'outline' : 'default'}
           className="shrink-0 text-xs"
         >
           {status}
