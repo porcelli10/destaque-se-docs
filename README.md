@@ -1,36 +1,69 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Destaque-se Docs
 
-## Getting Started
+Ferramenta interna para revisão de prompts de agentes de IA antes da ativação com clientes.
 
-First, run the development server:
+## Como funciona
+
+1. Admin cria um documento com o prompt completo
+2. Partes internas são marcadas com `[OCULTAR]...[/OCULTAR]`
+3. O sistema gera uma versão pública sem as partes ocultas
+4. Admin gera um link de revisão e envia para o cliente
+5. Cliente abre o link, lê o conteúdo liberado e envia comentários
+6. Admin recebe os comentários, ajusta o prompt e copia a versão final para o n8n
+
+## Segurança
+
+As partes ocultas são removidas no servidor antes de qualquer resposta à rota pública.
+O cliente nunca recebe o prompt completo, nem via DevTools, nem via chamadas de API.
+
+## Instalação
 
 ```bash
+# Clone o repositório
+git clone <url>
+cd destaque-se-docs
+
+# Instale as dependências
+npm install
+
+# Inicie o servidor de desenvolvimento
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Acesse [http://localhost:3000/admin](http://localhost:3000/admin).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Sintaxe de ocultação
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```
+Texto visível ao cliente.
 
-## Learn More
+[OCULTAR]
+Conteúdo interno que o cliente não verá.
+Regras, webhooks, ferramentas internas.
+[/OCULTAR]
 
-To learn more about Next.js, take a look at the following resources:
+Mais texto visível ao cliente.
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Estrutura de dados
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Os documentos e comentários são armazenados em arquivos JSON na pasta `/data/`:
+- `data/documents.json`
+- `data/comments.json`
 
-## Deploy on Vercel
+### Migração para Supabase
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Para migrar para Supabase, substitua as funções em `src/lib/storage.ts` por chamadas ao cliente Supabase. Os tipos em `src/lib/types.ts` já correspondem ao esquema de tabelas descrito abaixo.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+**Tabela `documents`:** id, project_name, client_name, full_prompt, public_prompt, review_token, status, created_at, updated_at
+
+**Tabela `review_comments`:** id, document_id, author_name, author_email, comment_text, selected_text, status, created_at
+
+## Scripts
+
+```bash
+npm run dev      # Desenvolvimento
+npm run build    # Build de produção
+npm run start    # Iniciar em produção
+npm run lint     # Lint
+```
