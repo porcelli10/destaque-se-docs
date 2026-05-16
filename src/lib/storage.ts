@@ -67,6 +67,7 @@ export function deleteDocument(id: string): boolean {
   const next = docs.filter((d) => d.id !== id)
   if (next.length === docs.length) return false
   writeDocs(next)
+  writeComments(readComments().filter((c) => c.document_id !== id))
   return true
 }
 
