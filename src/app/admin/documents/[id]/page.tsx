@@ -5,7 +5,7 @@ import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { DocumentEditor } from '@/components/document-editor'
 import { StatusBadge } from '@/components/status-badge'
-import { CommentsSection } from '@/components/comments-section'
+import { AnchoredReviewViewer } from '@/components/anchored-review-viewer'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 
@@ -20,7 +20,7 @@ export default async function DocumentPage({ params }: { params: Promise<{ id: s
 
   return (
     <main className="min-h-screen bg-slate-50">
-      <div className="max-w-4xl mx-auto px-4 py-10 space-y-10">
+      <div className="max-w-6xl mx-auto px-4 py-10 space-y-10">
         <div className="flex items-center gap-4">
           <Link href="/admin" className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }))}>
             ← Voltar
@@ -36,7 +36,7 @@ export default async function DocumentPage({ params }: { params: Promise<{ id: s
 
         <DocumentEditor document={doc} />
 
-        <CommentsSection comments={comments} />
+        <AnchoredReviewViewer publicPrompt={doc.public_prompt} comments={comments} />
       </div>
     </main>
   )
