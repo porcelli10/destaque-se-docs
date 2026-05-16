@@ -1,9 +1,11 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import { nanoid } from 'nanoid'
-import { PromptViewer } from '@/components/prompt-viewer'
-import { CommentSidebar } from '@/components/comment-sidebar'
+import { AnchoredCommentLayout, type BalloonEntry } from '@/components/anchored-comment-layout'
+import { ComposeBalloon } from '@/components/compose-balloon'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 
 export interface PendingComment {
   id: string
@@ -29,11 +31,18 @@ export function ReviewPageClient({ publicPrompt, reviewToken }: ReviewPageClient
   const promptRef = useRef<HTMLDivElement>(null)
   const floatingBtnRef = useRef<HTMLButtonElement>(null)
 
-  const highlights = pendingComments
-    .map(c => c.selected_text)
-    .filter((t): t is string => t !== null && t.length > 0)
+  // Stable balloon entries — only changes when comments are added/removed, not when text is typed
+  const balloons = useMemo<BalloonEntry[]>(
+    () => pendingComments.map(c => ({ id: c.id, selected_text: c.selected_text })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [pendingComments.map(c => `${c.id}:${c.selected_text}`).join('|')]
+  )
 
-  // Captura seleção de texto dentro do container do prompt
+  function handleTextRef(el: HTMLDivElement | null) {
+    ;(promptRef as React.MutableRefObject<HTMLDivElement | null>).current = el
+  }
+
+  // Detect text selection within the prompt text area
   useEffect(() => {
     function onMouseUp(e: MouseEvent) {
       const selection = window.getSelection()
@@ -58,7 +67,7 @@ export function ReviewPageClient({ publicPrompt, reviewToken }: ReviewPageClient
     return () => document.removeEventListener('mouseup', onMouseUp)
   }, [])
 
-  // Fecha botão flutuante ao clicar fora dele
+  // Close floating button on outside click
   useEffect(() => {
     if (!floatingBtn.visible) return
 
@@ -109,7 +118,6 @@ export function ReviewPageClient({ publicPrompt, reviewToken }: ReviewPageClient
     setSubmitting(true)
 
     try {
-
       const results = await Promise.allSettled(
         toSubmit.map(comment =>
           fetch('/api/comments', {
@@ -146,6 +154,12 @@ export function ReviewPageClient({ publicPrompt, reviewToken }: ReviewPageClient
     }
   }
 
+  const canSubmit =
+    authorName.trim().length > 0 &&
+    pendingComments.length > 0 &&
+    pendingComments.some(c => c.comment_text.trim().length > 0) &&
+    !submitting
+
   if (submitted) {
     return (
       <div className="text-center py-16 border rounded-xl bg-green-50 border-green-200">
@@ -156,35 +170,63 @@ export function ReviewPageClient({ publicPrompt, reviewToken }: ReviewPageClient
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-[1fr_360px] gap-6 items-start">
-      {/* Prompt com highlights */}
-      <div className="bg-white border rounded-xl p-6 shadow-sm">
-        <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-4">
-          Conteúdo para revisão
-        </h2>
-        <div ref={promptRef}>
-          <PromptViewer text={publicPrompt} highlights={highlights} />
-        </div>
-      </div>
-
-      {/* Sidebar */}
-      <div className="md:sticky md:top-6">
-        <CommentSidebar
-          authorName={authorName}
-          authorEmail={authorEmail}
-          onAuthorNameChange={setAuthorName}
-          onAuthorEmailChange={setAuthorEmail}
-          pendingComments={pendingComments}
-          onCommentTextChange={handleCommentTextChange}
-          onRemoveComment={handleRemoveComment}
-          onAddGeneral={handleAddGeneral}
-          onSubmit={handleSubmit}
-          submitting={submitting}
-          error={error}
+    <div className="space-y-4">
+      {/* Identity + action bar */}
+      <div className="flex flex-wrap items-center gap-3 p-4 bg-white border rounded-xl shadow-sm">
+        <Input
+          placeholder="Seu nome *"
+          value={authorName}
+          onChange={e => setAuthorName(e.target.value)}
+          className="w-36"
         />
+        <Input
+          type="email"
+          placeholder="Email"
+          value={authorEmail}
+          onChange={e => setAuthorEmail(e.target.value)}
+          className="w-48"
+        />
+        <Button type="button" variant="outline" size="sm" onClick={handleAddGeneral}>
+          + Comentário geral
+        </Button>
+        <Button onClick={handleSubmit} disabled={!canSubmit} size="sm" className="ml-auto">
+          {submitting
+            ? 'Enviando...'
+            : pendingComments.length === 0
+              ? 'Enviar comentários'
+              : `Enviar ${pendingComments.length} comentário${pendingComments.length > 1 ? 's' : ''}`}
+        </Button>
       </div>
 
-      {/* Botão flutuante de seleção */}
+      {error && (
+        <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded p-2">{error}</p>
+      )}
+
+      {pendingComments.length === 0 && (
+        <p className="text-sm text-slate-400 text-center py-1">
+          Selecione um trecho do texto e clique em <strong>+ Comentar</strong> para adicionar uma observação.
+        </p>
+      )}
+
+      <AnchoredCommentLayout
+        text={publicPrompt}
+        balloons={balloons}
+        onTextRef={handleTextRef}
+        renderBalloon={(id) => {
+          const comment = pendingComments.find(c => c.id === id)
+          if (!comment) return null
+          return (
+            <ComposeBalloon
+              selectedText={comment.selected_text}
+              commentText={comment.comment_text}
+              onChange={text => handleCommentTextChange(id, text)}
+              onRemove={() => handleRemoveComment(id)}
+            />
+          )
+        }}
+      />
+
+      {/* Floating "+ Comentar" button on text selection */}
       {floatingBtn.visible && (
         <button
           ref={floatingBtnRef}
