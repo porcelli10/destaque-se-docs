@@ -44,7 +44,11 @@ export function CommentSidebar({
     prevLengthRef.current = pendingComments.length
   }, [pendingComments.length])
 
-  const canSubmit = authorName.trim().length > 0 && pendingComments.length > 0 && !submitting
+  const canSubmit =
+    authorName.trim().length > 0 &&
+    pendingComments.length > 0 &&
+    pendingComments.some(c => c.comment_text.trim().length > 0) &&
+    !submitting
 
   return (
     <div className="flex flex-col gap-4">

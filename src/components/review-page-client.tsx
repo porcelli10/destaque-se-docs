@@ -98,15 +98,17 @@ export function ReviewPageClient({ publicPrompt, reviewToken }: ReviewPageClient
 
   async function handleSubmit() {
     setError(null)
+
+    const toSubmit = pendingComments.filter(c => c.comment_text.trim().length > 0)
+
+    if (toSubmit.length === 0) {
+      setError('Preencha o texto de pelo menos um comentário antes de enviar.')
+      return
+    }
+
     setSubmitting(true)
 
     try {
-      const toSubmit = pendingComments.filter(c => c.comment_text.trim().length > 0)
-
-      if (toSubmit.length === 0) {
-        setError('Preencha o texto de pelo menos um comentário antes de enviar.')
-        return
-      }
 
       const results = await Promise.allSettled(
         toSubmit.map(comment =>
