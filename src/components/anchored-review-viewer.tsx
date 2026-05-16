@@ -5,6 +5,7 @@ import { useMemo } from 'react'
 import { AnchoredCommentLayout, type BalloonEntry } from '@/components/anchored-comment-layout'
 import { ReviewBalloon } from '@/components/review-balloon'
 import { CopyButton } from '@/components/copy-button'
+import { getBalloonColor } from '@/lib/balloon-colors'
 import { format } from 'date-fns'
 import type { ReviewComment } from '@/lib/types'
 
@@ -59,7 +60,7 @@ export function AnchoredReviewViewer({ publicPrompt, comments }: AnchoredReviewV
       <AnchoredCommentLayout
         text={publicPrompt}
         balloons={balloons}
-        renderBalloon={(id) => {
+        renderBalloon={(id, index) => {
           const comment = comments.find(c => c.id === id)
           if (!comment) return null
           return (
@@ -71,6 +72,7 @@ export function AnchoredReviewViewer({ publicPrompt, comments }: AnchoredReviewV
               status={comment.status}
               createdAt={comment.created_at}
               onResolve={() => handleResolve(id)}
+              accentColor={getBalloonColor(index).border}
             />
           )
         }}

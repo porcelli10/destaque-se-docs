@@ -13,6 +13,7 @@ interface ReviewBalloonProps {
   status: 'Aberto' | 'Resolvido'
   createdAt: string
   onResolve: () => void
+  accentColor?: string
 }
 
 export function ReviewBalloon({
@@ -23,14 +24,14 @@ export function ReviewBalloon({
   status,
   createdAt,
   onResolve,
+  accentColor,
 }: ReviewBalloonProps) {
   const resolved = status === 'Resolvido'
 
   return (
     <div
-      className={`bg-white rounded-lg shadow-sm p-3 space-y-2 transition-opacity border-l-2 ${
-        resolved ? 'border-l-slate-300 border border-l-0 opacity-50' : 'border-l-blue-400 border border-l-0'
-      }`}
+      className={`bg-white rounded-lg shadow-sm p-3 space-y-2 transition-opacity border-l-2 border ${resolved ? 'opacity-50' : ''}`}
+      style={{ borderLeftColor: resolved ? '#cbd5e1' : (accentColor ?? '#3b82f6') }}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">

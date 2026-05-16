@@ -7,11 +7,15 @@ interface ComposeBalloonProps {
   commentText: string
   onChange: (text: string) => void
   onRemove: () => void
+  accentColor?: string
 }
 
-export function ComposeBalloon({ selectedText, commentText, onChange, onRemove }: ComposeBalloonProps) {
+export function ComposeBalloon({ selectedText, commentText, onChange, onRemove, accentColor }: ComposeBalloonProps) {
   return (
-    <div className="bg-white border-l-2 border-l-blue-400 border border-l-0 rounded-lg shadow-sm p-3 space-y-2">
+    <div
+      className="bg-white border-l-2 border rounded-lg shadow-sm p-3 space-y-2"
+      style={{ borderLeftColor: accentColor ?? '#3b82f6' }}
+    >
       {selectedText && (
         <div className="bg-amber-50 border border-amber-200 rounded p-2 text-xs text-amber-800 italic leading-relaxed">
           &ldquo;{selectedText}&rdquo;

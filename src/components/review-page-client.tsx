@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useMemo } from 'react'
 import { nanoid } from 'nanoid'
 import { AnchoredCommentLayout, type BalloonEntry } from '@/components/anchored-comment-layout'
 import { ComposeBalloon } from '@/components/compose-balloon'
+import { getBalloonColor } from '@/lib/balloon-colors'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 
@@ -212,7 +213,7 @@ export function ReviewPageClient({ publicPrompt, reviewToken }: ReviewPageClient
         text={publicPrompt}
         balloons={balloons}
         onTextRef={handleTextRef}
-        renderBalloon={(id) => {
+        renderBalloon={(id, index) => {
           const comment = pendingComments.find(c => c.id === id)
           if (!comment) return null
           return (
@@ -221,6 +222,7 @@ export function ReviewPageClient({ publicPrompt, reviewToken }: ReviewPageClient
               commentText={comment.comment_text}
               onChange={text => handleCommentTextChange(id, text)}
               onRemove={() => handleRemoveComment(id)}
+              accentColor={getBalloonColor(index).border}
             />
           )
         }}

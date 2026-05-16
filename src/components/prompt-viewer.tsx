@@ -3,11 +3,13 @@
 export interface Highlight {
   id: string
   text: string
+  color?: string
 }
 
 interface Segment {
   text: string
   highlightId: string | null
+  color?: string
 }
 
 export function buildHighlightedSegments(text: string, highlights: Highlight[]): Segment[] {
@@ -19,12 +21,13 @@ export function buildHighlightedSegments(text: string, highlights: Highlight[]):
   const parts = text.split(regex)
 
   const textToId = new Map(active.map(h => [h.text, h.id]))
+  const textToColor = new Map(active.map(h => [h.text, h.color]))
 
   return parts
     .filter(part => part.length > 0)
     .map(part => {
       const id = textToId.get(part)
-      return { text: part, highlightId: id ?? null }
+      return { text: part, highlightId: id ?? null, color: textToColor.get(part) }
     })
 }
 
@@ -43,7 +46,8 @@ export function PromptViewer({ text, highlights }: PromptViewerProps) {
           <mark
             key={i}
             data-highlight-id={seg.highlightId}
-            className="bg-yellow-200 rounded-sm not-italic"
+            className="rounded-sm not-italic"
+            style={{ backgroundColor: seg.color ?? '#fde68a' }}
           >
             {seg.text}
           </mark>

@@ -2,6 +2,7 @@
 
 import { useState, useRef, useLayoutEffect, useCallback, useMemo } from 'react'
 import { PromptViewer, type Highlight } from '@/components/prompt-viewer'
+import { getBalloonColor } from '@/lib/balloon-colors'
 
 export interface BalloonEntry {
   id: string
@@ -35,7 +36,10 @@ export function AnchoredCommentLayout({
     () =>
       balloons
         .filter(b => b.selected_text !== null)
-        .map(b => ({ id: b.id, text: b.selected_text! })),
+        .map(b => {
+          const idx = balloons.findIndex(x => x.id === b.id)
+          return { id: b.id, text: b.selected_text!, color: getBalloonColor(idx).bg }
+        }),
     // recompute only when ids or selected_texts change, not on every render
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [balloons.map(b => `${b.id}:${b.selected_text}`).join('|')]
