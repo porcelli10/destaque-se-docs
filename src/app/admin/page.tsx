@@ -4,6 +4,7 @@ import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { StatusBadge } from '@/components/status-badge'
 import { CopyLinkButton } from '@/components/copy-link-button'
+import { DeleteProjectButton } from '@/components/delete-project-button'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { cn } from '@/lib/utils'
@@ -63,6 +64,7 @@ export default async function AdminPage() {
                       >
                         Abrir
                       </Link>
+                      <DeleteProjectButton documentId={doc.id} projectName={doc.project_name} />
                     </div>
                   </CardContent>
                 </Card>
