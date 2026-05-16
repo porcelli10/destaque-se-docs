@@ -1,26 +1,36 @@
 'use client'
 
-interface Segment {
+export interface Highlight {
+  id: string
   text: string
-  highlight: boolean
 }
 
-export function buildHighlightedSegments(text: string, highlights: string[]): Segment[] {
-  const active = highlights.filter(h => h.length > 0)
-  if (active.length === 0) return [{ text, highlight: false }]
+interface Segment {
+  text: string
+  highlightId: string | null
+}
 
-  const escaped = active.map(h => h.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+export function buildHighlightedSegments(text: string, highlights: Highlight[]): Segment[] {
+  const active = highlights.filter(h => h.text.length > 0)
+  if (active.length === 0) return [{ text, highlightId: null }]
+
+  const escaped = active.map(h => h.text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
   const regex = new RegExp(`(${escaped.join('|')})`, 'g')
   const parts = text.split(regex)
 
+  const textToId = new Map(active.map(h => [h.text, h.id]))
+
   return parts
     .filter(part => part.length > 0)
-    .map(part => ({ text: part, highlight: active.includes(part) }))
+    .map(part => {
+      const id = textToId.get(part)
+      return { text: part, highlightId: id ?? null }
+    })
 }
 
 interface PromptViewerProps {
   text: string
-  highlights: string[]
+  highlights: Highlight[]
 }
 
 export function PromptViewer({ text, highlights }: PromptViewerProps) {
@@ -29,8 +39,12 @@ export function PromptViewer({ text, highlights }: PromptViewerProps) {
   return (
     <p className="whitespace-pre-wrap font-sans text-slate-800 text-sm leading-relaxed">
       {segments.map((seg, i) =>
-        seg.highlight ? (
-          <mark key={i} className="bg-yellow-200 rounded-sm not-italic">
+        seg.highlightId ? (
+          <mark
+            key={i}
+            data-highlight-id={seg.highlightId}
+            className="bg-yellow-200 rounded-sm not-italic"
+          >
             {seg.text}
           </mark>
         ) : (
