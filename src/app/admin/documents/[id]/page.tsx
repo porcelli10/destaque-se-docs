@@ -5,7 +5,7 @@ import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { DocumentEditor } from '@/components/document-editor'
 import { StatusBadge } from '@/components/status-badge'
-import { AdminPromptEditor } from '@/components/admin-prompt-editor'
+import { AnchoredReviewViewer } from '@/components/anchored-review-viewer'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 
@@ -36,7 +36,7 @@ export default async function DocumentPage({ params }: { params: Promise<{ id: s
 
         <DocumentEditor document={doc} />
 
-        <AdminPromptEditor fullPrompt={doc.full_prompt} comments={comments} />
+        <AnchoredReviewViewer publicPrompt={doc.public_prompt} comments={comments} />
       </div>
     </main>
   )
