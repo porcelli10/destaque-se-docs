@@ -101,8 +101,15 @@ export function ReviewPageClient({ publicPrompt, reviewToken }: ReviewPageClient
     setSubmitting(true)
 
     try {
+      const toSubmit = pendingComments.filter(c => c.comment_text.trim().length > 0)
+
+      if (toSubmit.length === 0) {
+        setError('Preencha o texto de pelo menos um comentário antes de enviar.')
+        return
+      }
+
       const results = await Promise.allSettled(
-        pendingComments.map(comment =>
+        toSubmit.map(comment =>
           fetch('/api/comments', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -120,8 +127,13 @@ export function ReviewPageClient({ publicPrompt, reviewToken }: ReviewPageClient
         )
       )
 
+      const successIds = toSubmit
+        .filter((_, i) => results[i].status === 'fulfilled')
+        .map(c => c.id)
+
       const failures = results.filter(r => r.status === 'rejected')
       if (failures.length > 0) {
+        setPendingComments(prev => prev.filter(c => !successIds.includes(c.id)))
         setError(`${failures.length} comentário(s) falharam ao ser enviados. Tente novamente.`)
         return
       }
