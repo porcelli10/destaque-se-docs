@@ -13,9 +13,10 @@ import type { Document } from '@/lib/types'
 
 interface DocumentEditorProps {
   document?: Document
+  hidePromptEditor?: boolean
 }
 
-export function DocumentEditor({ document }: DocumentEditorProps) {
+export function DocumentEditor({ document, hidePromptEditor }: DocumentEditorProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [projectName, setProjectName] = useState(document?.project_name ?? '')
@@ -105,7 +106,7 @@ export function DocumentEditor({ document }: DocumentEditorProps) {
         </div>
       </div>
 
-      <Tabs defaultValue="full">
+      {!hidePromptEditor && <Tabs defaultValue="full">
         <TabsList>
           <TabsTrigger value="full">Prompt completo</TabsTrigger>
           <TabsTrigger value="preview">Visualização do cliente</TabsTrigger>
@@ -148,7 +149,7 @@ export function DocumentEditor({ document }: DocumentEditorProps) {
             )}
           </div>
         </TabsContent>
-      </Tabs>
+      </Tabs>}
 
       {error && (
         <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded p-3">{error}</p>
