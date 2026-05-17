@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { StatusBadge } from '@/components/status-badge'
 import { CopyLinkButton } from '@/components/copy-link-button'
 import { DeleteProjectButton } from '@/components/delete-project-button'
+import { LogoutButton } from '@/components/logout-button'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { cn } from '@/lib/utils'
@@ -22,9 +23,12 @@ export default async function AdminPage() {
             <h1 className="text-2xl font-bold text-slate-900">Destaque-se Docs</h1>
             <p className="text-slate-500 text-sm mt-1">Revisão de prompts de agentes de IA</p>
           </div>
-          <Link href="/admin/documents/new" className={cn(buttonVariants({ variant: 'default' }))}>
-            + Novo documento
-          </Link>
+          <div className="flex items-center gap-2">
+            <LogoutButton />
+            <Link href="/admin/documents/new" className={cn(buttonVariants({ variant: 'default' }))}>
+              + Novo documento
+            </Link>
+          </div>
         </div>
 
         {documents.length === 0 ? (

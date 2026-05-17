@@ -16,19 +16,58 @@ export function buildHighlightedSegments(text: string, highlights: Highlight[]):
   const active = highlights.filter(h => h.text.length > 0)
   if (active.length === 0) return [{ text, highlightId: null }]
 
-  const escaped = active.map(h => h.text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
-  const regex = new RegExp(`(${escaped.join('|')})`, 'g')
-  const parts = text.split(regex)
+  // Build non-overlapping intervals using plain string search.
+  // Highlights processed in order; each claims the first occurrence in the text
+  // that hasn't been taken by a prior highlight. This correctly handles:
+  //   • two clients selecting the same passage (each gets a distinct occurrence)
+  //   • one selection being a substring of another (no regex alternation pitfall)
+  const intervals: Array<{ start: number; end: number; id: string; color?: string }> = []
 
-  const textToId = new Map(active.map(h => [h.text, h.id]))
-  const textToColor = new Map(active.map(h => [h.text, h.color]))
+  // Build a flexible regex that allows \n+ where the selection has \n
+  // (browser selection collapses consecutive newlines, e.g. \n\n\n → \n\n)
+  function toFlexibleRegex(searchText: string): RegExp {
+    const escaped = searchText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    return new RegExp(escaped.replace(/\n+/g, '\\n+'), 'g')
+  }
 
-  return parts
-    .filter(part => part.length > 0)
-    .map(part => {
-      const id = textToId.get(part)
-      return { text: part, highlightId: id ?? null, color: textToColor.get(part) }
-    })
+  for (const h of active) {
+    let from = 0
+    while (from <= text.length) {
+      // Try exact match first
+      let idx = text.indexOf(h.text, from)
+      let end = idx >= 0 ? idx + h.text.length : -1
+
+      // Fallback: flexible newline match
+      if (idx === -1) {
+        const regex = toFlexibleRegex(h.text)
+        regex.lastIndex = from
+        const match = regex.exec(text)
+        if (!match) break
+        idx = match.index
+        end = match.index + match[0].length
+      }
+
+      const overlaps = intervals.some(iv => idx < iv.end && end > iv.start)
+      if (!overlaps) {
+        intervals.push({ start: idx, end, id: h.id, color: h.color })
+        break
+      }
+      from = idx + 1
+    }
+  }
+
+  intervals.sort((a, b) => a.start - b.start)
+
+  const segments: Segment[] = []
+  let cursor = 0
+  for (const iv of intervals) {
+    if (iv.start > cursor) segments.push({ text: text.slice(cursor, iv.start), highlightId: null })
+    segments.push({ text: text.slice(iv.start, iv.end), highlightId: iv.id, color: iv.color })
+    cursor = iv.end
+  }
+  if (cursor < text.length) segments.push({ text: text.slice(cursor), highlightId: null })
+
+  return segments.filter(s => s.text.length > 0)
 }
 
 interface PromptViewerProps {

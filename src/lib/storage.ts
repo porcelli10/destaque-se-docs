@@ -1,94 +1,169 @@
+import Database from 'better-sqlite3'
 import fs from 'fs'
 import path from 'path'
 import type { Document, ReviewComment } from './types'
 
-const DATA_DIR = path.join(process.cwd(), 'data')
-const DOCS_FILE = path.join(DATA_DIR, 'documents.json')
-const COMMENTS_FILE = path.join(DATA_DIR, 'comments.json')
+const DB_PATH = process.env.DB_PATH ?? path.join(process.cwd(), 'data', 'destaque-se.db')
 
-function ensureDataDir() {
-  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true })
-  if (!fs.existsSync(DOCS_FILE)) fs.writeFileSync(DOCS_FILE, '[]')
-  if (!fs.existsSync(COMMENTS_FILE)) fs.writeFileSync(COMMENTS_FILE, '[]')
+let _db: Database.Database | null = null
+
+function getDb(): Database.Database {
+  if (_db) return _db
+
+  fs.mkdirSync(path.dirname(DB_PATH), { recursive: true })
+
+  const db = new Database(DB_PATH)
+  db.pragma('journal_mode = WAL')
+  db.pragma('foreign_keys = ON')
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS documents (
+      id TEXT PRIMARY KEY,
+      project_name TEXT NOT NULL,
+      client_name TEXT NOT NULL,
+      full_prompt TEXT NOT NULL,
+      public_prompt TEXT NOT NULL,
+      review_token TEXT NOT NULL UNIQUE,
+      status TEXT NOT NULL DEFAULT 'Rascunho',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS comments (
+      id TEXT PRIMARY KEY,
+      document_id TEXT NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+      author_name TEXT NOT NULL,
+      author_email TEXT NOT NULL DEFAULT '',
+      comment_text TEXT NOT NULL,
+      selected_text TEXT,
+      status TEXT NOT NULL DEFAULT 'Aberto',
+      created_at TEXT NOT NULL
+    );
+  `)
+
+  migrateFromJson(db)
+
+  _db = db
+  return db
 }
 
-function readDocs(): Document[] {
-  ensureDataDir()
-  return JSON.parse(fs.readFileSync(DOCS_FILE, 'utf-8'))
-}
+// One-time migration from legacy JSON files
+function migrateFromJson(db: Database.Database) {
+  const docsFile = path.join(process.cwd(), 'data', 'documents.json')
+  const commentsFile = path.join(process.cwd(), 'data', 'comments.json')
 
-function writeDocs(docs: Document[]) {
-  ensureDataDir()
-  fs.writeFileSync(DOCS_FILE, JSON.stringify(docs, null, 2))
-}
+  const alreadyMigrated =
+    (db.prepare('SELECT COUNT(*) as n FROM documents').get() as { n: number }).n > 0
 
-function readComments(): ReviewComment[] {
-  ensureDataDir()
-  return JSON.parse(fs.readFileSync(COMMENTS_FILE, 'utf-8'))
-}
+  if (alreadyMigrated || !fs.existsSync(docsFile)) return
 
-function writeComments(comments: ReviewComment[]) {
-  ensureDataDir()
-  fs.writeFileSync(COMMENTS_FILE, JSON.stringify(comments, null, 2))
+  const docs: Document[] = JSON.parse(fs.readFileSync(docsFile, 'utf-8'))
+  const comments: ReviewComment[] = fs.existsSync(commentsFile)
+    ? JSON.parse(fs.readFileSync(commentsFile, 'utf-8'))
+    : []
+
+  const insertDoc = db.prepare(`
+    INSERT OR IGNORE INTO documents
+      (id, project_name, client_name, full_prompt, public_prompt, review_token, status, created_at, updated_at)
+    VALUES
+      (@id, @project_name, @client_name, @full_prompt, @public_prompt, @review_token, @status, @created_at, @updated_at)
+  `)
+
+  const insertComment = db.prepare(`
+    INSERT OR IGNORE INTO comments
+      (id, document_id, author_name, author_email, comment_text, selected_text, status, created_at)
+    VALUES
+      (@id, @document_id, @author_name, @author_email, @comment_text, @selected_text, @status, @created_at)
+  `)
+
+  const migrate = db.transaction(() => {
+    for (const doc of docs) insertDoc.run(doc)
+    for (const c of comments) insertComment.run(c)
+  })
+
+  migrate()
 }
 
 export function getAllDocuments(): Document[] {
-  return readDocs().sort(
-    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-  )
+  return getDb()
+    .prepare('SELECT * FROM documents ORDER BY created_at DESC')
+    .all() as Document[]
 }
 
 export function getDocumentById(id: string): Document | null {
-  return readDocs().find((d) => d.id === id) ?? null
+  return (getDb().prepare('SELECT * FROM documents WHERE id = ?').get(id) as Document) ?? null
 }
 
 export function getDocumentByToken(token: string): Document | null {
-  return readDocs().find((d) => d.review_token === token) ?? null
+  return (
+    (getDb()
+      .prepare('SELECT * FROM documents WHERE review_token = ?')
+      .get(token) as Document) ?? null
+  )
 }
 
 export function createDocument(doc: Document): Document {
-  const docs = readDocs()
-  docs.push(doc)
-  writeDocs(docs)
+  getDb()
+    .prepare(`
+      INSERT INTO documents
+        (id, project_name, client_name, full_prompt, public_prompt, review_token, status, created_at, updated_at)
+      VALUES
+        (@id, @project_name, @client_name, @full_prompt, @public_prompt, @review_token, @status, @created_at, @updated_at)
+    `)
+    .run(doc)
   return doc
 }
 
 export function updateDocument(id: string, updates: Partial<Document>): Document | null {
-  const docs = readDocs()
-  const idx = docs.findIndex((d) => d.id === id)
-  if (idx === -1) return null
-  docs[idx] = { ...docs[idx], ...updates, updated_at: new Date().toISOString() }
-  writeDocs(docs)
-  return docs[idx]
+  const current = getDocumentById(id)
+  if (!current) return null
+
+  const updated = { ...current, ...updates, updated_at: new Date().toISOString() }
+  getDb()
+    .prepare(`
+      UPDATE documents SET
+        project_name = @project_name,
+        client_name  = @client_name,
+        full_prompt  = @full_prompt,
+        public_prompt = @public_prompt,
+        status       = @status,
+        updated_at   = @updated_at
+      WHERE id = @id
+    `)
+    .run(updated)
+  return updated
 }
 
 export function deleteDocument(id: string): boolean {
-  const docs = readDocs()
-  const next = docs.filter((d) => d.id !== id)
-  if (next.length === docs.length) return false
-  writeDocs(next)
-  writeComments(readComments().filter((c) => c.document_id !== id))
-  return true
+  const result = getDb().prepare('DELETE FROM documents WHERE id = ?').run(id)
+  return result.changes > 0
 }
 
 export function getCommentsByDocumentId(documentId: string): ReviewComment[] {
-  return readComments()
-    .filter((c) => c.document_id === documentId)
-    .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+  return getDb()
+    .prepare('SELECT * FROM comments WHERE document_id = ? ORDER BY created_at ASC')
+    .all(documentId) as ReviewComment[]
 }
 
 export function createComment(comment: ReviewComment): ReviewComment {
-  const comments = readComments()
-  comments.push(comment)
-  writeComments(comments)
+  getDb()
+    .prepare(`
+      INSERT INTO comments
+        (id, document_id, author_name, author_email, comment_text, selected_text, status, created_at)
+      VALUES
+        (@id, @document_id, @author_name, @author_email, @comment_text, @selected_text, @status, @created_at)
+    `)
+    .run(comment)
   return comment
 }
 
 export function updateComment(id: string, updates: Partial<ReviewComment>): ReviewComment | null {
-  const comments = readComments()
-  const idx = comments.findIndex((c) => c.id === id)
-  if (idx === -1) return null
-  comments[idx] = { ...comments[idx], ...updates }
-  writeComments(comments)
-  return comments[idx]
+  const current = getDb().prepare('SELECT * FROM comments WHERE id = ?').get(id) as ReviewComment | undefined
+  if (!current) return null
+
+  const updated = { ...current, ...updates }
+  getDb()
+    .prepare('UPDATE comments SET status = @status WHERE id = @id')
+    .run(updated)
+  return updated
 }

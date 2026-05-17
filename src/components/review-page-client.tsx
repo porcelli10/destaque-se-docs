@@ -20,6 +20,8 @@ interface ReviewPageClientProps {
 }
 
 export function ReviewPageClient({ publicPrompt, reviewToken }: ReviewPageClientProps) {
+  const storageKey = `review-draft-${reviewToken}`
+
   const [authorName, setAuthorName] = useState('')
   const [authorEmail, setAuthorEmail] = useState('')
   const [pendingComments, setPendingComments] = useState<PendingComment[]>([])
@@ -28,9 +30,33 @@ export function ReviewPageClient({ publicPrompt, reviewToken }: ReviewPageClient
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [draftRestored, setDraftRestored] = useState(false)
 
   const promptRef = useRef<HTMLDivElement>(null)
   const floatingBtnRef = useRef<HTMLButtonElement>(null)
+
+  // Recover draft on mount
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(storageKey)
+      if (!raw) return
+      const draft = JSON.parse(raw)
+      if (draft.authorName) setAuthorName(draft.authorName)
+      if (draft.authorEmail) setAuthorEmail(draft.authorEmail)
+      if (Array.isArray(draft.pendingComments) && draft.pendingComments.length > 0) {
+        setPendingComments(draft.pendingComments)
+        setDraftRestored(true)
+      }
+    } catch {}
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Auto-save on every change
+  useEffect(() => {
+    try {
+      localStorage.setItem(storageKey, JSON.stringify({ authorName, authorEmail, pendingComments }))
+    } catch {}
+  }, [storageKey, authorName, authorEmail, pendingComments])
 
   // Stable balloon entries — only changes when comments are added/removed, not when text is typed
   const balloons = useMemo<BalloonEntry[]>(
@@ -149,6 +175,7 @@ export function ReviewPageClient({ publicPrompt, reviewToken }: ReviewPageClient
         return
       }
 
+      localStorage.removeItem(storageKey)
       setSubmitted(true)
     } finally {
       setSubmitting(false)
@@ -172,6 +199,44 @@ export function ReviewPageClient({ publicPrompt, reviewToken }: ReviewPageClient
 
   return (
     <div className="space-y-4">
+      {draftRestored && (
+        <div className="flex items-center justify-between text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-4 py-2">
+          <span>Rascunho recuperado — seus comentários anteriores foram restaurados.</span>
+          <button
+            type="button"
+            onClick={() => setDraftRestored(false)}
+            className="ml-4 text-amber-600 hover:text-amber-900 font-medium"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {pendingComments.length === 0 && (
+        <p className="text-sm text-slate-400 text-center py-1">
+          Selecione um trecho do texto e clique em <strong>+ Comentar</strong> para adicionar uma observação.
+        </p>
+      )}
+
+      <AnchoredCommentLayout
+        text={publicPrompt}
+        balloons={balloons}
+        onTextRef={handleTextRef}
+        renderBalloon={(id, index) => {
+          const comment = pendingComments.find(c => c.id === id)
+          if (!comment) return null
+          return (
+            <ComposeBalloon
+              selectedText={comment.selected_text}
+              commentText={comment.comment_text}
+              onChange={text => handleCommentTextChange(id, text)}
+              onRemove={() => handleRemoveComment(id)}
+              accentColor={getBalloonColor(index).border}
+            />
+          )
+        }}
+      />
+
       {/* Identity + action bar */}
       <div className="flex flex-wrap items-center gap-3 p-4 bg-white border rounded-xl shadow-sm">
         <Input
@@ -202,31 +267,6 @@ export function ReviewPageClient({ publicPrompt, reviewToken }: ReviewPageClient
       {error && (
         <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded p-2">{error}</p>
       )}
-
-      {pendingComments.length === 0 && (
-        <p className="text-sm text-slate-400 text-center py-1">
-          Selecione um trecho do texto e clique em <strong>+ Comentar</strong> para adicionar uma observação.
-        </p>
-      )}
-
-      <AnchoredCommentLayout
-        text={publicPrompt}
-        balloons={balloons}
-        onTextRef={handleTextRef}
-        renderBalloon={(id, index) => {
-          const comment = pendingComments.find(c => c.id === id)
-          if (!comment) return null
-          return (
-            <ComposeBalloon
-              selectedText={comment.selected_text}
-              commentText={comment.comment_text}
-              onChange={text => handleCommentTextChange(id, text)}
-              onRemove={() => handleRemoveComment(id)}
-              accentColor={getBalloonColor(index).border}
-            />
-          )
-        }}
-      />
 
       {/* Floating "+ Comentar" button on text selection */}
       {floatingBtn.visible && (

@@ -24,6 +24,7 @@ export function DocumentEditor({ document, hidePromptEditor }: DocumentEditorPro
   const [fullPrompt, setFullPrompt] = useState(document?.full_prompt ?? '')
   const [error, setError] = useState<string | null>(null)
   const [saveLabel, setSaveLabel] = useState('Salvar')
+  const [activeTab, setActiveTab] = useState<string>('full')
 
   const validation = validateHideTags(fullPrompt)
   const publicPreview = validation.valid ? parsePublicPrompt(fullPrompt) : ''
@@ -85,6 +86,14 @@ export function DocumentEditor({ document, hidePromptEditor }: DocumentEditorPro
 
   return (
     <div className="space-y-6">
+      {!document && (
+        <div className="flex justify-end">
+          <Button onClick={handleSave} disabled={isPending}>
+            {isPending ? 'Salvando...' : saveLabel}
+          </Button>
+        </div>
+      )}
+
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-1">
           <Label htmlFor="project_name">Nome do projeto</Label>
@@ -106,13 +115,13 @@ export function DocumentEditor({ document, hidePromptEditor }: DocumentEditorPro
         </div>
       </div>
 
-      {!hidePromptEditor && <Tabs defaultValue="full">
+      {!hidePromptEditor && <Tabs value={activeTab} onValueChange={(v) => setActiveTab(String(v))}>
         <TabsList>
           <TabsTrigger value="full">Prompt completo</TabsTrigger>
           <TabsTrigger value="preview">Visualização do cliente</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="full" className="mt-3">
+        <TabsContent value="full" keepMounted className="mt-3">
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <Label>Prompt completo (com partes ocultas)</Label>
@@ -132,7 +141,7 @@ export function DocumentEditor({ document, hidePromptEditor }: DocumentEditorPro
           </div>
         </TabsContent>
 
-        <TabsContent value="preview" className="mt-3">
+        <TabsContent value="preview" keepMounted className="mt-3">
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <Label>O que o cliente verá</Label>
